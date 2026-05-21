@@ -297,6 +297,7 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
         </div>
         <div class="bank-balance-label-hua">帳戶餘額</div>
         <div class="bank-balance-hua" id="bal-hua"></div>
+        <div id="hua-month-interest" style="font-size:11px;color:#c0392b;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
         <div class="cat-section-hua" id="cats-hua"></div>
       </div>
       <div class="bank-card bank-card-lian">
@@ -312,6 +313,7 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
         </div>
         <div class="bank-balance-label-lian">帳戶餘額</div>
         <div class="bank-balance-lian" id="bal-lian"></div>
+        <div id="lian-month-interest" style="font-size:11px;color:#2471a3;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
         <div class="cat-section-lian" id="cats-lian"></div>
       </div>
     </div>
@@ -659,19 +661,78 @@ function autoApplyLoans(){
 }
 
 // ═══ Pending items ══════════════════════════════════════════
+function calcMonthInterest(bank, rate, year, month){
+  const ym = `${year}-${month}`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const monthTxs = S.txs.filter(t => t.ym===ym && t.bank===bank)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  let currentBal = S[bank];
+  const afterTxs = S.txs.filter(t=>{
+    if(!t.ym) return false;
+    const [ty,tm]=t.ym.split('-').map(Number);
+    return (ty>year||(ty===year&&tm>=month))&&t.bank===bank;
+  });
+  afterTxs.forEach(t=>{
+    const isIn=t.type==='in'||t.type==='interest'||t.type==='repay';
+    currentBal+=isIn?-t.amt:t.amt;
+  });
+  const changes={};
+  monthTxs.forEach(t=>{
+    const day=parseInt(t.date.split('/')[2])||1;
+    const isIn=t.type==='in'||t.type==='interest'||t.type==='repay';
+    changes[day]=(changes[day]||0)+(isIn?t.amt:-t.amt);
+  });
+  let bal=currentBal, total=0;
+  for(let d=1;d<=daysInMonth;d++){
+    if(changes[d]) bal+=changes[d];
+    total+=bal;
+  }
+  return Math.round(total*(rate/100)/365);
+}
+
+function calcMonthInterestToDate(bank, rate){
+  const d = new Date();
+  const y = d.getFullYear(), m = d.getMonth()+1, today = d.getDate();
+  const ym = `${y}-${m}`;
+
+  const monthTxs = S.txs.filter(t => t.ym===ym && t.bank===bank)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  let currentBal = S[bank];
+  const afterTxs = S.txs.filter(t => {
+    if(!t.ym) return false;
+    const [ty,tm] = t.ym.split('-').map(Number);
+    return (ty > y || (ty===y && tm >= m)) && t.bank===bank;
+  });
+  afterTxs.forEach(t => {
+    const isIn = t.type==='in'||t.type==='interest'||t.type==='repay';
+    currentBal += isIn ? -t.amt : t.amt;
+  });
+
+  const changes = {};
+  monthTxs.forEach(t => {
+    const day = parseInt(t.date.split('/')[2]) || 1;
+    const isIn = t.type==='in'||t.type==='interest'||t.type==='repay';
+    changes[day] = (changes[day]||0) + (isIn ? t.amt : -t.amt);
+  });
+
+  let bal = currentBal, total = 0;
+  for(let d2=1; d2<=today; d2++){
+    if(changes[d2]) bal += changes[d2];
+    total += bal;
+  }
+  return Math.round(total * (rate/100) / 365);
+}
 function buildPending(){
   const{y,m,day}=todayInfo(); const ym=`${y}-${m}`; const c=S.settings; const items=[];
   const daysInMonth = new Date(y, m, 0).getDate();
-  // 華南：showDay 當天顯示，用 huaDay 那個月的天數計算
   if(day===c.huaShowDay&&!S.reminded[`hua_int_${ym}`]){
-    const calcDays = new Date(y, m-(day<c.huaDay?0:0), 0).getDate();
-    const amt=Math.round(S.hua*(c.huaRate/100)/365*daysInMonth);
-    if(amt>0) items.push({key:`hua_int_${ym}`,label:`華南利息 (${c.huaRate}%/年・${daysInMonth}天)`,amt,dir:'in',bank:'hua',desc:'華南每月利息'});
+    const amt = calcMonthInterest('hua', c.huaRate, y, m);
+    if(amt>0) items.push({key:`hua_int_${ym}`,label:`華南利息 (${c.huaRate}%/年・日計息)`,amt,dir:'in',bank:'hua',desc:'華南每月利息'});
   }
-  // 聯邦：showDay 當天顯示
   if(day===c.lianShowDay&&!S.reminded[`lian_int_${ym}`]){
-    const amt=Math.round(S.lian*(c.lianRate/100)/365*daysInMonth);
-    if(amt>0) items.push({key:`lian_int_${ym}`,label:`聯邦利息 (${c.lianRate}%/年・${daysInMonth}天)`,amt,dir:'in',bank:'lian',desc:'聯邦每月利息'});
+    const amt = calcMonthInterest('lian', c.lianRate, y, m);
+    if(amt>0) items.push({key:`lian_int_${ym}`,label:`聯邦利息 (${c.lianRate}%/年・日計息)`,amt,dir:'in',bank:'lian',desc:'聯邦每月利息'});
   }
   if(day===c.etf1Day&&!S.reminded[`etf1_${ym}`]&&c.etf1Amt>0)
     items.push({key:`etf1_${ym}`,label:'定期定額 股票A',amt:c.etf1Amt,dir:'out',bank:'lian',desc:'定期定額 股票A'});
@@ -853,10 +914,18 @@ function renderRemind(){
 }
 
 function renderOverview(){
-  // 數字滾動動畫
   const animVal=(el,val)=>{el.classList.remove('count-anim');void el.offsetWidth;el.textContent=fmt(val);el.classList.add('count-anim');};
   animVal(document.getElementById('bal-hua'),S.hua);
   animVal(document.getElementById('bal-lian'),S.lian);
+
+  // 本月預估利息（用整月天數計算）
+  const d=new Date(); const monthLabel=`${d.getMonth()+1}月`;
+  const huaInt=calcMonthInterest('hua', S.settings.huaRate, d.getFullYear(), d.getMonth()+1);
+  const lianInt=calcMonthInterest('lian', S.settings.lianRate, d.getFullYear(), d.getMonth()+1);
+  const huaIntEl=document.getElementById('hua-month-interest');
+  const lianIntEl=document.getElementById('lian-month-interest');
+  if(huaIntEl) huaIntEl.textContent=huaInt>0?`${monthLabel}預估利息 +${huaInt.toLocaleString('zh-TW')}`:''
+  if(lianIntEl) lianIntEl.textContent=lianInt>0?`${monthLabel}預估利息 +${lianInt.toLocaleString('zh-TW')}`:''
   ['hua','lian'].forEach(b=>{
     const el=document.getElementById('cats-'+b);
     if(!S.cats[b].length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:4px 0">暫無分類</div>';return;}
