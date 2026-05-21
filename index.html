@@ -172,7 +172,7 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
 /* ── Tx list ── */
 .tx-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}
 .tx-row:last-child{border-bottom:none;}
-.tx-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-right:10px;flex-shrink:0;}
+.tx-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-right:10px;flex-shrink:0;}
 .tx-icon-in{background:var(--green-bg);color:var(--green);}
 .tx-icon-out{background:var(--red-bg);color:var(--red);}
 .tx-icon-repay{background:var(--blue-bg);color:var(--blue);}
@@ -955,9 +955,9 @@ function renderOverview(){
   const lianInt=calcMonthInterest('lian', S.settings.lianRate, d.getFullYear(), d.getMonth()+1);
   const huaIntEl=document.getElementById('hua-month-interest');
   const lianIntEl=document.getElementById('lian-month-interest');
-  if(huaIntEl) huaIntEl.textContent=huaInt>0?`${monthLabel}預估利息 +${huaInt.toLocaleString('zh-TW')}`:''
-  if(lianIntEl) lianIntEl.textContent=lianInt>0?`${monthLabel}預估利息 +${lianInt.toLocaleString('zh-TW')}`:''
-  ['hua','lian'].forEach(b=>{
+  if(huaIntEl) huaIntEl.textContent=huaInt>0?`${monthLabel}預估利息 +${huaInt.toLocaleString('zh-TW')}`:'';
+  if(lianIntEl) lianIntEl.textContent=lianInt>0?`${monthLabel}預估利息 +${lianInt.toLocaleString('zh-TW')}`:'';
+  ;['hua','lian'].forEach(b=>{
     const el=document.getElementById('cats-'+b);
     if(!el) return;
     const cats=S.cats?.[b]||[];
@@ -1096,8 +1096,8 @@ function renderTx(){
     const rows=list.map(t=>{
       const isIn=t.type==='in'||t.type==='interest'||t.type==='repay';
       const bankLogo=t.bank==='hua'
-        ?`<div style="width:26px;height:26px;border-radius:7px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px">華</div>`
-        :`<div style="width:26px;height:26px;border-radius:7px;background:#2471a3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px">聯</div>`;
+        ?`<div style="width:30px;height:30px;border-radius:8px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px">華</div>`
+        :`<div style="width:30px;height:30px;border-radius:8px;background:#2471a3;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px">聯</div>`;
       return`<div class="tx-row">
         <div class="tx-left">${bankLogo}${txIcon(t.type)}
           <div style="min-width:0">
