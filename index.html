@@ -540,11 +540,28 @@ let loanSort = 'default';
 async function load(){
   try{ const r=await window.storage.get(STORE_KEY); if(r?.value) S=JSON.parse(r.value); }
   catch(e){ try{ const s=localStorage.getItem(STORE_KEY); if(s) S=JSON.parse(s); }catch(e2){} }
-  // 補齊新欄位
-  if(!S.settings.remindAhead) S.settings.remindAhead=2;
-  if(!S.fixedSchedules) S.fixedSchedules=[];
-  if(!S.settings.huaShowDay) S.settings.huaShowDay=S.settings.huaDay;
-  if(!S.settings.lianShowDay) S.settings.lianShowDay=S.settings.lianDay;
+  // 強制補齊所有必要欄位，防止 Gist 資料結構不完整
+  S.hua     = S.hua     ?? 57000;
+  S.lian    = S.lian    ?? 0;
+  S.txs     = Array.isArray(S.txs)   ? S.txs   : [];
+  S.loans   = Array.isArray(S.loans) ? S.loans : [];
+  if(!S.cats)       S.cats = {};
+  if(!Array.isArray(S.cats.hua))  S.cats.hua  = [];
+  if(!Array.isArray(S.cats.lian)) S.cats.lian = [];
+  if(!S.settings)       S.settings = {};
+  S.settings.huaRate    = S.settings.huaRate    ?? 2;
+  S.settings.huaDay     = S.settings.huaDay     ?? 21;
+  S.settings.huaShowDay = S.settings.huaShowDay ?? 21;
+  S.settings.lianRate   = S.settings.lianRate   ?? 1.5;
+  S.settings.lianDay    = S.settings.lianDay    ?? 21;
+  S.settings.lianShowDay= S.settings.lianShowDay?? 22;
+  S.settings.etf1Amt    = S.settings.etf1Amt    ?? 1000;
+  S.settings.etf1Day    = S.settings.etf1Day    ?? 6;
+  S.settings.etf2Amt    = S.settings.etf2Amt    ?? 1000;
+  S.settings.etf2Day    = S.settings.etf2Day    ?? 6;
+  S.settings.remindAhead= S.settings.remindAhead?? 2;
+  S.fixedSchedules = Array.isArray(S.fixedSchedules) ? S.fixedSchedules : [];
+  if(!S.reminded) S.reminded = {};
 }
 async function persist(){
   try{ await window.storage.set(STORE_KEY,JSON.stringify(S)); }
@@ -628,12 +645,17 @@ const fmtAbs=n=>Math.round(Math.abs(n)).toLocaleString('zh-TW');
 function findCat(name){return S.cats.hua.find(c=>c.name===name);}
 
 // ═══ Repay logic ═══════════════════════════════════════════
+function findCat(name){
+  if(!S.cats||!Array.isArray(S.cats.hua)) return null;
+  return S.cats.hua.find(c=>c.name===name);
+}
 function doRepay(loan,pp){
   S.hua+=pp;
+  if(!S.cats) S.cats={hua:[],lian:[]};
+  if(!Array.isArray(S.cats.hua)) S.cats.hua=[];
   const catIdx=S.cats.hua.findIndex(c=>c.name===loan.name);
   if(catIdx!==-1){
     S.cats.hua[catIdx].val=Math.min(0,S.cats.hua[catIdx].val+pp);
-    // 還清後自動移除細項
     if(loan.paid>=loan.periods) S.cats.hua.splice(catIdx,1);
   }
 }
@@ -928,12 +950,14 @@ function renderOverview(){
   if(lianIntEl) lianIntEl.textContent=lianInt>0?`${monthLabel}預估利息 +${lianInt.toLocaleString('zh-TW')}`:''
   ['hua','lian'].forEach(b=>{
     const el=document.getElementById('cats-'+b);
-    if(!S.cats[b].length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:4px 0">暫無分類</div>';return;}
-    el.innerHTML=S.cats[b].map(c=>{
+    if(!el) return;
+    const cats=S.cats?.[b]||[];
+    if(!cats.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:4px 0">暫無分類</div>';return;}
+    el.innerHTML=cats.map(c=>{
       const isHua=b==='hua';
       const cls=c.val>0?(isHua?'cat-val-pos-hua':'cat-val-pos-lian'):c.val<0?'cat-val-neg':'cat-val-zero';
       const labelCls=isHua?'cat-label-hua':'cat-label-lian';
-      const loan=S.loans.find(l=>l.name===c.name);
+      const loan=(S.loans||[]).find(l=>l.name===c.name);
       const loanTag=loan&&loan.paid<loan.periods?`<span class="loan-tag">剩${loan.periods-loan.paid}期</span>`:'';
       const onclick=loan?`onclick="sw('loans');setTimeout(()=>scrollToLoan(${loan.id}),80)"`:
         `onclick="openCatEditModalDirect('${b}','${c.id}')"`;
@@ -1141,8 +1165,11 @@ function renderSettings(){
         <button onclick="removeFixed('${fx.id}')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:18px;line-height:1">×</button>
       </div>
     </div>`).join(''):'<p style="font-size:13px;color:var(--text3);padding:6px 0">無固定收支排程</p>';
+  if(!S.cats) S.cats={hua:[],lian:[]};
   ['hua','lian'].forEach(b=>{
     const el=document.getElementById('cat-list-'+b);
+    if(!el) return;
+    if(!S.cats[b]) S.cats[b]=[];
     const label=b==='hua'?'華南':'聯邦';
     el.innerHTML=`<p style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">${label}分類</p>`+
       (S.cats[b].length?S.cats[b].map((c,i)=>`
@@ -1223,6 +1250,8 @@ function addLoan(){
   const pp=Math.round(total/periods);
   const remaining=-(total-pp*Math.min(paid,periods));
   S.loans.push({id:Date.now(),name,total,periods,paid,repayDay});
+  if(!S.cats) S.cats={hua:[],lian:[]};
+  if(!S.cats.hua) S.cats.hua=[];
   if(!S.cats.hua.find(c=>c.name===name)) S.cats.hua.push({id:'c'+Date.now(),name,val:remaining});
   persist();render();closeM('loan-modal');
   ['ln-name','ln-total','ln-periods','ln-paid','ln-day'].forEach(id=>document.getElementById(id).value='');
@@ -1248,6 +1277,8 @@ function saveLoanEdit(){
   const newDay=parseInt(document.getElementById('el-day').value)||10;
   const pp=Math.round(newTotal/newPer);
   const remaining=-(newTotal-pp*Math.min(newPaid,newPer));
+  if(!S.cats) S.cats={hua:[],lian:[]};
+  if(!S.cats.hua) S.cats.hua=[];
   const cat=S.cats.hua.find(c=>c.name===oldName);
   if(cat){cat.name=newName;cat.val=remaining;}
   l.name=newName;l.total=newTotal;l.periods=newPer;l.paid=newPaid;l.repayDay=newDay;
@@ -1285,6 +1316,8 @@ function saveCat(){
   const catId=document.getElementById('cat-edit-id').value;
   const name=document.getElementById('cat-name').value.trim()||'新分類';
   const val=parseFloat(document.getElementById('cat-amt').value)||0;
+  if(!S.cats) S.cats={hua:[],lian:[]};
+  if(!S.cats[bank]) S.cats[bank]=[];
   if(pendCatMode==='edit'&&catId){
     const cat=S.cats[bank].find(c=>c.id===catId); if(!cat) return;
     const oldVal=cat.val;
@@ -1306,6 +1339,7 @@ function saveCat(){
   persist();render();closeM('cat-modal');
 }
 function removeCat(bank,idx){
+  if(!S.cats||!S.cats[bank]) return;
   const cat=S.cats[bank][idx];
   if(cat&&cat.val!==0){
     S[bank]-=cat.val;
