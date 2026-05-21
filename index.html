@@ -384,7 +384,8 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
           <div id="cat-list-hua"></div>
           <button class="gbtn" onclick="openCatModal('hua')" style="margin-bottom:12px"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></i> 新增華南分類</button>
           <div id="cat-list-lian"></div>
-          <button class="gbtn" onclick="openCatModal('lian')"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></i> 新增聯邦分類</button>
+          <button class="gbtn" onclick="openCatModal('lian')" style="margin-bottom:12px"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></i> 新增聯邦分類</button>
+          <button class="gbtn" onclick="resetDefaultCats()" style="color:var(--amber);border-color:var(--amber);margin-top:4px">重設為預設分類</button>
         </div>
       </div>
 
@@ -626,6 +627,14 @@ async function gistPull(){
     const json=await res.json();
     const file=json.files?.['accountbook.json']; if(!file){alert('找不到資料');return;}
     const raw=await fetch(file.raw_url); S=await raw.json();
+    // 強制補齊結構，防止舊資料格式問題
+    if(!S.cats) S.cats={hua:[],lian:[]};
+    if(!Array.isArray(S.cats.hua)) S.cats.hua=[];
+    if(!Array.isArray(S.cats.lian)) S.cats.lian=[];
+    if(!Array.isArray(S.txs)) S.txs=[];
+    if(!Array.isArray(S.loans)) S.loans=[];
+    if(!S.settings) S.settings={};
+    if(!S.reminded) S.reminded={};
     await persist(); render(); alert('✅ 資料已從 Gist 下載！');
   }catch(e){alert('下載失敗：'+e.message);}
 }
@@ -1338,6 +1347,28 @@ function saveCat(){
   }
   persist();render();closeM('cat-modal');
 }
+function resetDefaultCats(){
+  if(!confirm('確定要重設為預設分類嗎？現有分類會被清除。')) return;
+  S.cats={
+    hua:[
+      {id:'h1',name:'士林押金',val:-27600},
+      {id:'h2',name:'美式代墊',val:-7200},
+      {id:'h3',name:'益生菌',val:-7500},
+      {id:'h4',name:'配方時代',val:-9800},
+      {id:'h5',name:'Claude',val:-5500},
+      {id:'h6',name:'台中銀入款',val:50000},
+      {id:'h7',name:'股利',val:6500},
+    ],
+    lian:[
+      {id:'l1',name:'房租暫放',val:0},
+      {id:'l2',name:'電水瓦斯',val:0},
+      {id:'l3',name:'出國旅費',val:0},
+      {id:'l4',name:'股利',val:0},
+    ]
+  };
+  persist();render();alert('已重設為預設分類！');
+}
+
 function removeCat(bank,idx){
   if(!S.cats||!S.cats[bank]) return;
   const cat=S.cats[bank][idx];
