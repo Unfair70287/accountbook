@@ -944,6 +944,14 @@ function renderOverview(){
   animVal(document.getElementById('n-lian'),S.lian);
   const nt=document.getElementById('n-total');
   nt.classList.remove('count-anim');void nt.offsetWidth;nt.textContent=fmt(S.hua+S.lian);nt.classList.add('count-anim');
+
+  // 確保收折狀態正確套用
+  ['hua','lian'].forEach(b=>{
+    const el=document.getElementById('cats-'+b);
+    const btn=document.getElementById('cats-toggle-'+b);
+    if(el) el.style.display=catsCollapsed[b]?'none':'';
+    if(btn) btn.style.transform=catsCollapsed[b]?'rotate(180deg)':'rotate(0deg)';
+  });
 }
 
 function scrollToLoan(id){
@@ -1054,8 +1062,11 @@ function renderTx(){
     const bodyId=`mg-${ym.replace('-','_')}`;
     const rows=list.map(t=>{
       const isIn=t.type==='in'||t.type==='interest'||t.type==='repay';
+      const bankLogo=t.bank==='hua'
+        ?`<div style="width:26px;height:26px;border-radius:7px;background:#c0392b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px">華</div>`
+        :`<div style="width:26px;height:26px;border-radius:7px;background:#2471a3;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px">聯</div>`;
       return`<div class="tx-row">
-        <div class="tx-left">${txIcon(t.type)}
+        <div class="tx-left">${bankLogo}${txIcon(t.type)}
           <div style="min-width:0">
             <div class="tx-desc">${t.desc}</div>
             <div class="tx-meta2">${t.bank==='hua'?'華南':'聯邦'} · ${t.date}${t.note?` · ${t.note}`:''}</div>
