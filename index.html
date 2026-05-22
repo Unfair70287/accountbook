@@ -746,12 +746,21 @@ function calcInterestForPeriod(bank, rate, startY, startM, startDay, endY, endM,
 // 預估利息：從上期計算日到今天（計算日前顯示）
 function calcCycleInterest(bank, rate, calcDay){
   const{y,m,day}=todayInfo();
-  if(day >= calcDay) return 0; // 已過計算日，歸零
 
-  let startY=y, startM=m-1;
-  if(startM<1){startM=12;startY-=1;}
+  let startY, startM, startDay, endY, endM, endDay;
 
-  return calcInterestForPeriod(bank, rate, startY, startM, calcDay, y, m, day);
+  if(day < calcDay){
+    // 還沒到計算日：週期是「上月calcDay → 今天」
+    startY=y; startM=m-1; if(startM<1){startM=12;startY-=1;}
+    startDay=calcDay;
+    endY=y; endM=m; endDay=day;
+  } else {
+    // 已過計算日：新週期「本月calcDay → 今天」
+    startY=y; startM=m; startDay=calcDay;
+    endY=y; endM=m; endDay=day;
+  }
+
+  return calcInterestForPeriod(bank, rate, startY, startM, startDay, endY, endM, endDay);
 }
 
 // 入帳利息：完整週期（上期計算日 → 本期計算日前一天）
@@ -968,14 +977,17 @@ function renderOverview(){
   animVal(document.getElementById('bal-lian'),S.lian);
 
   // 預估利息
-  const d=new Date(); const monthLabel=`${d.getMonth()+1}月`;
-  const today=d.getDate();
-  const huaInt=calcCycleInterest('hua',S.settings.huaRate,S.settings.huaDay||21);
-  const lianInt=calcCycleInterest('lian',S.settings.lianRate,S.settings.lianDay||21);
+  const d=new Date(); const today=d.getDate();
+  const huaCalcDay=S.settings.huaDay||21;
+  const lianCalcDay=S.settings.lianDay||21;
+  const huaInt=calcCycleInterest('hua',S.settings.huaRate,huaCalcDay);
+  const lianInt=calcCycleInterest('lian',S.settings.lianRate,lianCalcDay);
   const huaIntEl=document.getElementById('hua-month-interest');
   const lianIntEl=document.getElementById('lian-month-interest');
-  if(huaIntEl) huaIntEl.textContent=huaInt>0?(monthLabel+'預估利息 +'+huaInt.toLocaleString('zh-TW')):'';
-  if(lianIntEl) lianIntEl.textContent=lianInt>0?(monthLabel+'預估利息 +'+lianInt.toLocaleString('zh-TW')):'';
+  const huaLabel=(today>=huaCalcDay?(d.getMonth()+2):d.getMonth()+1)+'月';
+  const lianLabel=(today>=lianCalcDay?(d.getMonth()+2):d.getMonth()+1)+'月';
+  if(huaIntEl) huaIntEl.textContent=huaInt>0?(huaLabel+'預估利息 +'+huaInt.toLocaleString('zh-TW')):'';
+  if(lianIntEl) lianIntEl.textContent=lianInt>0?(lianLabel+'預估利息 +'+lianInt.toLocaleString('zh-TW')):'';
 
   // 細項
   ['hua','lian'].forEach(function(b){
