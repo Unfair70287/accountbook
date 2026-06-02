@@ -924,7 +924,13 @@ function renderRemind(){
   const area=document.getElementById('remind-area');
   const aheadArea=document.getElementById('remind-ahead-area');
   const ym=todayYM(); let html='';
-  const autoToday=S.txs.filter(t=>t.type==='repay'&&t.ym===ym&&t.auto===true);
+  const autoToday=S.txs.filter(t=>{
+    if(t.type!=='repay'||t.ym!==ym||t.auto!==true) return false;
+    // 只在還款當天顯示
+    const loan=S.loans.find(l=>l.id===t.loanId);
+    const repayDay=loan?loan.repayDay||1:1;
+    return day===repayDay;
+  });
   if(autoToday.length){
     const rows=autoToday.map(t=>`
       <div class="banner-item"><span>${t.desc}</span>
