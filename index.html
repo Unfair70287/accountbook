@@ -541,17 +541,27 @@ let S = JSON.parse(JSON.stringify(DEFAULT));
 let loanSort = 'default';
 
 async function load(){
-  try{ const r=await window.storage.get(STORE_KEY); if(r?.value) S=JSON.parse(r.value); }
-  catch(e){ try{ const s=localStorage.getItem(STORE_KEY); if(s) S=JSON.parse(s); }catch(e2){} }
-  // 強制補齊所有必要欄位，防止 Gist 資料結構不完整
-  S.hua     = S.hua     ?? 57000;
-  S.lian    = S.lian    ?? 0;
-  S.txs     = Array.isArray(S.txs)   ? S.txs   : [];
-  S.loans   = Array.isArray(S.loans) ? S.loans : [];
-  if(!S.cats)       S.cats = {};
-  if(!Array.isArray(S.cats.hua))  S.cats.hua  = [];
-  if(!Array.isArray(S.cats.lian)) S.cats.lian = [];
-  if(!S.settings)       S.settings = {};
+  let raw=null;
+  // window.storage 只在 Claude artifact 環境存在，GitHub Pages 用 localStorage
+  if(typeof window.storage!=='undefined'){
+    try{ const r=await window.storage.get(STORE_KEY); if(r?.value) raw=r.value; }catch(e){}
+  }
+  if(!raw){ try{ raw=localStorage.getItem(STORE_KEY); }catch(e){} }
+  if(raw){
+    try{
+      const parsed=JSON.parse(raw);
+      if(parsed&&typeof parsed==='object') S=parsed;
+    }catch(e){ console.warn('資料解析失敗，使用預設值'); S=JSON.parse(JSON.stringify(DEFAULT)); }
+  }
+  // 強制補齊所有必要欄位
+  if(typeof S.hua!=='number')  S.hua=57000;
+  if(typeof S.lian!=='number') S.lian=0;
+  S.txs   = Array.isArray(S.txs)   ? S.txs   : [];
+  S.loans = Array.isArray(S.loans) ? S.loans : [];
+  if(!S.cats||typeof S.cats!=='object') S.cats={};
+  if(!Array.isArray(S.cats.hua))  S.cats.hua=[];
+  if(!Array.isArray(S.cats.lian)) S.cats.lian=[];
+  if(!S.settings||typeof S.settings!=='object') S.settings={};
   S.settings.huaRate    = S.settings.huaRate    ?? 2;
   S.settings.huaDay     = S.settings.huaDay     ?? 21;
   S.settings.huaShowDay = S.settings.huaShowDay ?? 21;
@@ -566,11 +576,14 @@ async function load(){
   S.settings.etf2On     = S.settings.etf2On     ?? false;
   S.settings.remindAhead= S.settings.remindAhead?? 2;
   S.fixedSchedules = Array.isArray(S.fixedSchedules) ? S.fixedSchedules : [];
-  if(!S.reminded) S.reminded = {};
+  if(!S.reminded||typeof S.reminded!=='object') S.reminded={};
 }
 async function persist(){
-  try{ await window.storage.set(STORE_KEY,JSON.stringify(S)); }
-  catch(e){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(S)); }catch(e2){} }
+  const json=JSON.stringify(S);
+  if(typeof window.storage!=='undefined'){
+    try{ await window.storage.set(STORE_KEY,json); }catch(e){}
+  }
+  try{ localStorage.setItem(STORE_KEY,json); }catch(e){}
   scheduleGistSync();
 }
 
@@ -631,6 +644,16 @@ async function gistPull(){
     const json=await res.json();
     const file=json.files?.['accountbook.json']; if(!file){alert('找不到資料');return;}
     const raw=await fetch(file.raw_url); S=await raw.json();
+    // 修正 txs 日期格式，統一為 yyyy/m/d
+    if(Array.isArray(S.txs)){
+      S.txs.forEach(t=>{
+        if(t.date && t.date.includes('-')){
+          // 把 yyyy-mm-dd 改成 yyyy/m/d
+          const p=t.date.split('-');
+          if(p.length===3) t.date=`${p[0]}/${parseInt(p[1])}/${parseInt(p[2])}`;
+        }
+      });
+    }
     // 強制補齊結構，防止舊資料格式問題
     if(!S.cats) S.cats={hua:[],lian:[]};
     if(!Array.isArray(S.cats.hua)) S.cats.hua=[];
@@ -706,17 +729,19 @@ function calcInterestForPeriod(bank, rate, startY, startM, startDay, endY, endM,
   // 先建立每天的餘額變動 map，key = 'yyyy/m/d'
   const changeMap = {};
   S.txs.forEach(t=>{
-    if(t.bank !== bank) return;
+    if(t.bank !== bank || !t.date) return;
     const isIn = t.type==='in'||t.type==='interest'||t.type==='repay';
     changeMap[t.date] = (changeMap[t.date]||0) + (isIn ? t.amt : -t.amt);
   });
 
   // 從現在餘額反推 end 那天的餘額
-  let bal = S[bank];
+  let bal = S[bank]||0;
   S.txs.forEach(t=>{
-    if(t.bank !== bank) return;
+    if(t.bank !== bank || !t.date) return;
     const parts = t.date.split('/');
+    if(parts.length < 3) return;
     const td = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    if(isNaN(td.getTime())) return;
     if(td > end){
       const isIn = t.type==='in'||t.type==='interest'||t.type==='repay';
       bal += isIn ? -t.amt : t.amt;
