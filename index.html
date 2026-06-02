@@ -948,7 +948,7 @@ function renderChart(){
 function renderRemind(){
   const area=document.getElementById('remind-area');
   const aheadArea=document.getElementById('remind-ahead-area');
-  const ym=todayYM(); let html='';
+  const ym=todayYM(); const{day}=todayInfo(); let html='';
   const autoToday=S.txs.filter(t=>{
     if(t.type!=='repay'||t.ym!==ym||t.auto!==true) return false;
     // 只在還款當天顯示
