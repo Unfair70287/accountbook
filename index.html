@@ -387,7 +387,7 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
           <button class="gbtn" onclick="openCatModal('hua')" style="margin-bottom:12px"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></i> 新增華南分類</button>
           <div id="cat-list-lian"></div>
           <button class="gbtn" onclick="openCatModal('lian')" style="margin-bottom:12px"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></i> 新增聯邦分類</button>
-          <button class="gbtn" onclick="resetDefaultCats()" style="color:var(--amber);border-color:var(--amber);margin-top:4px">重設為預設分類</button>
+          <button class="gbtn" onclick="resetDefaultCats()" style="color:var(--amber);border-color:var(--amber);margin-top:4px;display:none">重設為預設分類</button>
         </div>
       </div>
 
@@ -489,6 +489,18 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
     <div class="frow"><label>金額 (NT$)</label><input id="fx-amt" type="number" inputmode="numeric" placeholder="0"></div>
     <div class="frow"><label>每月幾號執行</label><input id="fx-day" type="number" min="1" max="28" placeholder="1"></div>
     <div class="brow"><button onclick="closeM('fixed-modal')">取消</button><button class="primary" onclick="addFixed()">新增</button></div>
+  </div>
+</div>
+
+<!-- Modal: 通用確認 -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal" style="padding-bottom:28px">
+    <div class="modal-handle"></div>
+    <p id="confirm-msg" style="font-size:16px;font-weight:500;margin-bottom:24px;text-align:center;line-height:1.6"></p>
+    <div class="brow">
+      <button onclick="closeM('confirm-modal')">取消</button>
+      <button class="primary" id="confirm-ok-btn" style="background:var(--red);border-color:transparent">刪除</button>
+    </div>
   </div>
 </div>
 
@@ -1169,7 +1181,7 @@ function renderTx(){
         </div>
         <div style="display:flex;align-items:center">
           <div class="tx-amt ${isIn?'vp':'vn'}">${isIn?'+':'-'}${fmt(t.amt)}</div>
-          <button class="tx-del" onclick="deleteTx('${t.id}')" aria-label="刪除"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></i></button>
+          <button class="tx-del" onclick="confirmDeleteTx('${t.id}','${t.desc}')" aria-label="刪除"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></i></button>
         </div>
       </div>`;
     }).join('');
@@ -1191,6 +1203,9 @@ function toggleMonth(id){
   const open=body.style.display!=='none';
   body.style.display=open?'none':'block';
   chev.classList.toggle('open',!open);
+}
+function confirmDeleteTx(txId, desc){
+  showConfirm(`確定要刪除「${desc}」這筆紀錄嗎？`, function(){ deleteTx(txId); });
 }
 function deleteTx(txId){
   const idx=S.txs.findIndex(t=>t.id===txId); if(idx===-1) return;
@@ -1433,15 +1448,27 @@ function resetDefaultCats(){
   persist();render();alert('已重設為預設分類！');
 }
 
+function showConfirm(msg, onOk, okLabel='刪除', danger=true){
+  document.getElementById('confirm-msg').textContent=msg;
+  const btn=document.getElementById('confirm-ok-btn');
+  btn.textContent=okLabel;
+  btn.style.background=danger?'var(--red)':'var(--accent)';
+  btn.onclick=function(){ closeM('confirm-modal'); onOk(); };
+  openM('confirm-modal');
+}
+
 function removeCat(bank,idx){
   if(!S.cats||!S.cats[bank]) return;
   const cat=S.cats[bank][idx];
-  if(cat&&cat.val!==0){
-    S[bank]-=cat.val;
-    S.txs.push({id:'tx_'+Date.now(),bank,type:cat.val>0?'out':'in',
-      desc:`刪除分類：${cat.name}`,amt:Math.abs(cat.val),date:todayLabel(),ym:todayYM()});
-  }
-  S.cats[bank].splice(idx,1); persist();render();
+  showConfirm(`確定要刪除「${cat.name}」分類嗎？`, function(){
+    if(cat.val!==0){
+      S[bank]-=cat.val;
+      S.txs.push({id:'tx_'+Date.now(),bank,type:cat.val>0?'out':'in',
+        desc:`刪除分類：${cat.name}`,amt:Math.abs(cat.val),date:todayLabel(),ym:todayYM()});
+    }
+    S.cats[bank].splice(idx,1);
+    persist(); render();
+  });
 }
 function addFixed(){
   const desc=document.getElementById('fx-desc').value.trim()||'固定收支';
