@@ -361,12 +361,8 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
           <div class="srow"><label>利息計算日</label><input type="number" id="s-lian-day" min="1" max="28"></div>
           <div class="srow"><label>利息顯示日</label><input type="number" id="s-lian-show-day" min="1" max="28"></div>
           <p class="acc-sub" style="margin-top:8px">聯邦定期定額</p>
-          <div class="srow"><label>股票A 啟用</label><input type="checkbox" id="s-etf1-on" style="width:auto;accent-color:var(--accent)"></div>
-          <div class="srow"><label>股票A 金額 (NT$)</label><input type="number" id="s-etf1-amt" min="0"></div>
-          <div class="srow"><label>股票A 扣款日</label><input type="number" id="s-etf1-day" min="1" max="28"></div>
-          <div class="srow"><label>股票B 啟用</label><input type="checkbox" id="s-etf2-on" style="width:auto;accent-color:var(--accent)"></div>
-          <div class="srow"><label>股票B 金額 (NT$)</label><input type="number" id="s-etf2-amt" min="0"></div>
-          <div class="srow"><label>股票B 扣款日</label><input type="number" id="s-etf2-day" min="1" max="28"></div>
+          <div id="etf-list"></div>
+          <button class="gbtn" style="margin-top:6px" onclick="openEtfModal(null)"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span></i> 新增定期定額</button>
           <p class="acc-sub" style="margin-top:8px">提前提醒（天）</p>
           <div class="srow"><label>還款/扣款提前幾天提醒</label><input type="number" id="s-remind-ahead" min="0" max="7"></div>
           <p class="acc-sub" style="margin-top:8px">固定收支排程</p>
@@ -478,6 +474,26 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
   </div>
 </div>
 
+<!-- Modal: 定期定額 -->
+<div class="modal-bg" id="etf-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3 id="etf-modal-title">新增定期定額</h3>
+    <input type="hidden" id="etf-edit-id">
+    <div class="frow"><label>名稱（股票代號或名稱）</label><input id="etf-name" type="text" placeholder="例：0050、台積電..."></div>
+    <div class="frow"><label>每月金額 (NT$)</label><input id="etf-amt" type="number" inputmode="numeric" placeholder="0"></div>
+    <div class="frow"><label>每月扣款日</label><input id="etf-day" type="number" min="1" max="28" placeholder="6"></div>
+    <div class="frow" style="display:flex;justify-content:space-between;align-items:center">
+      <label style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em">啟用</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+        <span id="etf-on-label">開啟</span>
+        <input type="checkbox" id="etf-on" style="width:20px;height:20px;accent-color:var(--accent);cursor:pointer" checked>
+      </label>
+    </div>
+    <div class="brow"><button onclick="closeM('etf-modal')">取消</button><button class="primary" id="etf-save-btn" onclick="saveEtf()">新增</button></div>
+  </div>
+</div>
+
 <!-- Modal: 固定收支 -->
 <div class="modal-bg" id="fixed-modal">
   <div class="modal">
@@ -545,7 +561,8 @@ const DEFAULT = {
       {id:'l3',name:'出國旅費',val:0},{id:'l4',name:'股利',val:0},
     ]
   },
-  settings:{huaRate:2,huaDay:21,huaShowDay:21,lianRate:1.5,lianDay:21,lianShowDay:22,etf1Amt:1000,etf1Day:6,etf1On:false,etf2Amt:1000,etf2Day:6,etf2On:false,remindAhead:2},
+  settings:{huaRate:2,huaDay:21,huaShowDay:21,lianRate:1.5,lianDay:21,lianShowDay:22,remindAhead:2},
+  etfList:[],
   fixedSchedules:[],
   reminded:{}
 };
@@ -580,13 +597,13 @@ async function load(){
   S.settings.lianRate   = S.settings.lianRate   ?? 1.5;
   S.settings.lianDay    = S.settings.lianDay    ?? 21;
   S.settings.lianShowDay= S.settings.lianShowDay?? 22;
-  S.settings.etf1Amt    = S.settings.etf1Amt    ?? 1000;
-  S.settings.etf1Day    = S.settings.etf1Day    ?? 6;
-  S.settings.etf1On     = S.settings.etf1On     ?? false;
-  S.settings.etf2Amt    = S.settings.etf2Amt    ?? 1000;
-  S.settings.etf2Day    = S.settings.etf2Day    ?? 6;
-  S.settings.etf2On     = S.settings.etf2On     ?? false;
   S.settings.remindAhead= S.settings.remindAhead?? 2;
+  S.etfList = Array.isArray(S.etfList) ? S.etfList : [];
+  // 舊版 etf1/etf2 自動遷移
+  if(!S.etfList.length && (S.settings.etf1Amt||S.settings.etf2Amt)){
+    if(S.settings.etf1Amt) S.etfList.push({id:'etf1',name:'股票A',amt:S.settings.etf1Amt||1000,day:S.settings.etf1Day||6,on:S.settings.etf1On||false});
+    if(S.settings.etf2Amt) S.etfList.push({id:'etf2',name:'股票B',amt:S.settings.etf2Amt||1000,day:S.settings.etf2Day||6,on:S.settings.etf2On||false});
+  }
   S.fixedSchedules = Array.isArray(S.fixedSchedules) ? S.fixedSchedules : [];
   if(!S.reminded||typeof S.reminded!=='object') S.reminded={};
 }
@@ -829,10 +846,12 @@ function buildPending(){
     const amt=calcFullCycleInterest('lian',c.lianRate,c.lianDay||21);
     if(amt>0) items.push({key:`lian_int_${ym}`,label:`聯邦利息 (${c.lianRate}%/年・週期計息)`,amt,dir:'in',bank:'lian',desc:'聯邦每月利息'});
   }
-  if(day>=c.etf1Day&&!S.reminded[`etf1_${ym}`]&&c.etf1Amt>0&&c.etf1On)
-    items.push({key:`etf1_${ym}`,label:'定期定額 股票A',amt:c.etf1Amt,dir:'out',bank:'lian',desc:'定期定額 股票A'});
-  if(day>=c.etf2Day&&!S.reminded[`etf2_${ym}`]&&c.etf2Amt>0&&c.etf2On)
-    items.push({key:`etf2_${ym}`,label:'定期定額 股票B',amt:c.etf2Amt,dir:'out',bank:'lian',desc:'定期定額 股票B'});
+  // 定期定額
+  (S.etfList||[]).forEach(function(etf){
+    const key='etf_'+etf.id+'_'+ym;
+    if(etf.on && day>=etf.day && !S.reminded[key])
+      items.push({key,label:'定期定額 '+etf.name,amt:etf.amt,dir:'out',bank:'lian',desc:'定期定額 '+etf.name});
+  });
   // 固定收支
   (S.fixedSchedules||[]).forEach(fx=>{
     const key=`fx_${fx.id}_${ym}`;
@@ -1232,12 +1251,22 @@ function renderSettings(){
   document.getElementById('s-lian-rate').value=c.lianRate;
   document.getElementById('s-lian-day').value=c.lianDay;
   document.getElementById('s-lian-show-day').value=c.lianShowDay||c.lianDay;
-  document.getElementById('s-etf1-on').checked =c.etf1On??false;
-  document.getElementById('s-etf1-amt').value=c.etf1Amt;
-  document.getElementById('s-etf1-day').value=c.etf1Day;
-  document.getElementById('s-etf2-on').checked =c.etf2On??false;
-  document.getElementById('s-etf2-amt').value=c.etf2Amt;
-  document.getElementById('s-etf2-day').value=c.etf2Day;
+  // 定期定額清單
+  const etfEl=document.getElementById('etf-list');
+  if(etfEl){
+    const list=S.etfList||[];
+    etfEl.innerHTML=list.length?list.map(function(etf){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +'<div><label style="display:flex;align-items:center;gap:6px;cursor:pointer">'
+        +'<input type="checkbox" '+(etf.on?'checked':'')+' onchange="toggleEtf(\''+etf.id+'\')" style="accent-color:var(--accent)">'
+        +'<span>'+etf.name+'</span></label>'
+        +'<span style="font-size:11px;color:var(--text3);margin-left:20px">每月'+etf.day+'號 NT$'+etf.amt.toLocaleString('zh-TW')+'</span></div>'
+        +'<div style="display:flex;align-items:center;gap:10px">'
+        +'<button onclick="openEtfModal(\''+etf.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--accent);font-size:13px">編輯</button>'
+        +'<button onclick="removeEtf(\''+etf.id+'\')" style="border:none;background:none;cursor:pointer;color:var(--red);font-size:18px;line-height:1">×</button>'
+        +'</div></div>';
+    }).join(''):'<p style="font-size:13px;color:var(--text3);padding:6px 0">無定期定額項目</p>';
+  }
   document.getElementById('s-remind-ahead').value=c.remindAhead??2;
   // 固定收支清單
   const fxEl=document.getElementById('fixed-schedule-list');
@@ -1487,14 +1516,55 @@ function removeFixed(id){
   persist();render();
 }
 
+// ── 定期定額管理 ─────────────────────────────────────────
+let etfEditId = null;
+function openEtfModal(id){
+  etfEditId = id||null;
+  const etf = id ? (S.etfList||[]).find(e=>e.id===id) : null;
+  document.getElementById('etf-modal-title').textContent = etf?'編輯定期定額':'新增定期定額';
+  document.getElementById('etf-save-btn').textContent = etf?'儲存':'新增';
+  document.getElementById('etf-edit-id').value = id||'';
+  document.getElementById('etf-name').value = etf?etf.name:'';
+  document.getElementById('etf-amt').value  = etf?etf.amt:'';
+  document.getElementById('etf-day').value  = etf?etf.day:'';
+  document.getElementById('etf-on').checked = etf?etf.on:true;
+  openM('etf-modal');
+}
+function saveEtf(){
+  const name=document.getElementById('etf-name').value.trim()||'定期定額';
+  const amt=Math.abs(parseFloat(document.getElementById('etf-amt').value)||0);
+  const day=parseInt(document.getElementById('etf-day').value)||6;
+  const on=document.getElementById('etf-on').checked;
+  if(!amt){alert('請輸入金額');return;}
+  if(!S.etfList) S.etfList=[];
+  if(etfEditId){
+    const idx=S.etfList.findIndex(e=>e.id===etfEditId);
+    if(idx!==-1) S.etfList[idx]={...S.etfList[idx],name,amt,day,on};
+  } else {
+    S.etfList.push({id:'etf_'+Date.now(),name,amt,day,on});
+  }
+  persist();render();closeM('etf-modal');
+}
+function removeEtf(id){
+  const etf=(S.etfList||[]).find(e=>e.id===id);
+  if(!etf) return;
+  showConfirm('確定要刪除「'+etf.name+'」定期定額嗎？', function(){
+    S.etfList=S.etfList.filter(e=>e.id!==id);
+    persist();render();
+  });
+}
+
+function toggleEtf(id){
+  const etf=(S.etfList||[]).find(e=>e.id===id);
+  if(etf){ etf.on=!etf.on; persist(); }
+}
+
 function saveSettings(){
   const g=id=>document.getElementById(id);
   saveGhCreds();
   S.settings={
     huaRate:parseFloat(g('s-hua-rate').value)||0, huaDay:parseInt(g('s-hua-day').value)||21, huaShowDay:parseInt(g('s-hua-show-day').value)||21,
     lianRate:parseFloat(g('s-lian-rate').value)||0, lianDay:parseInt(g('s-lian-day').value)||21, lianShowDay:parseInt(g('s-lian-show-day').value)||21,
-    etf1Amt:parseFloat(g('s-etf1-amt').value)||0, etf1Day:parseInt(g('s-etf1-day').value)||6, etf1On:g('s-etf1-on').checked,
-    etf2Amt:parseFloat(g('s-etf2-amt').value)||0, etf2Day:parseInt(g('s-etf2-day').value)||6, etf2On:g('s-etf2-on').checked,
     remindAhead:parseInt(g('s-remind-ahead').value)||0,
   };
   persist();render();alert('設定已儲存！');
