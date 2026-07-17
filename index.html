@@ -320,6 +320,7 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
 
     <!-- 借貸 -->
     <div id="tab-loans" class="section">
+      <div id="loan-summary"></div>
       <div class="sort-bar">
         <button class="sort-btn active" id="sort-btn-default" onclick="setSort('default')">預設</button>
         <button class="sort-btn" id="sort-btn-remain" onclick="setSort('remain')">剩餘期數</button>
@@ -1122,6 +1123,41 @@ function toggleCats(bank){
 
 function renderLoans(){
   const ll=document.getElementById('loan-list');
+  const summary=document.getElementById('loan-summary');
+
+  // 計算本月/下月應還總額
+  const{y,m}=todayInfo();
+  const activeLoans=S.loans.filter(l=>l.paid<l.periods);
+  const thisMonthTotal=activeLoans.reduce((s,l)=>s+Math.round(l.total/l.periods),0);
+  const nextMonthLoans=activeLoans.filter(l=>l.periods-l.paid>1);
+  const nextMonthTotal=nextMonthLoans.reduce((s,l)=>s+Math.round(l.total/l.periods),0);
+  const loanYm=todayYM();
+  const paidThisMonth=activeLoans.filter(l=>S.txs.some(t=>t.loanId===l.id&&t.type==='repay'&&t.ym===loanYm));
+  const paidAmt=paidThisMonth.reduce((s,l)=>s+Math.round(l.total/l.periods),0);
+  const remaining=thisMonthTotal-paidAmt;
+
+  if(summary){
+    if(!activeLoans.length){
+      summary.innerHTML='';
+    } else {
+      summary.innerHTML=`
+        <div style="background:var(--navy);border-radius:var(--r);padding:16px 18px;margin-bottom:14px;display:flex;gap:0">
+          <div style="flex:1;border-right:1px solid rgba(255,255,255,.1);padding-right:16px">
+            <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">本月應還</div>
+            <div style="font-size:22px;font-weight:700;color:#fff;letter-spacing:-.02em">${fmt(thisMonthTotal)}</div>
+            ${remaining>0
+              ?`<div style="font-size:11px;color:var(--amber);margin-top:4px">尚餘 ${fmt(remaining)} 未還</div>`
+              :`<div style="font-size:11px;color:var(--green);margin-top:4px">✓ 本月已全數還款</div>`
+            }
+          </div>
+          <div style="flex:1;padding-left:16px">
+            <div style="font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">下月應還</div>
+            <div style="font-size:22px;font-weight:700;color:#93c5fd;letter-spacing:-.02em">${fmt(nextMonthTotal)}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:4px">${nextMonthLoans.length} 筆借貸</div>
+          </div>
+        </div>`;
+    }
+  }
   if(!S.loans.length){
     ll.innerHTML=`<div class="empty-state fade-in"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="3" x2="21" y2="21"/><path d="M9 5H6a3 3 0 00-3 3v8a3 3 0 003 3h12a3 3 0 002.7-1.7M21 10V8a3 3 0 00-1-2.2"/><line x1="3" y1="10" x2="16" y2="10"/></svg></span></i><p>還沒有借貸項目<br>點下方按鈕新增</p></div>`;
     return;
