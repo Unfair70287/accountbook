@@ -166,6 +166,12 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
 .sort-btn{flex:1;padding:6px;font-size:11px;border:1px solid var(--border2);border-radius:var(--rs);background:none;cursor:pointer;color:var(--text2);font-family:inherit;transition:all .15s;}
 .sort-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
 .empty-state{display:flex;flex-direction:column;align-items:center;padding:40px 20px;color:var(--text3);}
+.bank-drag-handle{display:none;align-items:center;padding:0 6px 0 0;cursor:grab;color:var(--text3);touch-action:none;}
+.bank-editing .bank-drag-handle{display:flex;}
+.bank-hidden-card{opacity:.45;filter:grayscale(.6);}
+.bank-card.dragging{opacity:.4;transform:scale(.97);}
+.bank-card.drag-over{outline:2px dashed var(--accent);outline-offset:2px;}
+.bank-hide-btn{font-size:12px;padding:4px 10px;border:1px solid var(--border2);border-radius:6px;background:none;cursor:pointer;color:var(--text2);font-family:inherit;}
 .empty-state i{font-size:48px;margin-bottom:12px;opacity:.4;}
 .empty-state p{font-size:14px;text-align:center;line-height:1.6;}
 
@@ -283,39 +289,14 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
       <div id="remind-area"></div>
       <div id="remind-ahead-area"></div>
 
-      <p class="stitle">帳戶</p>
-      <div class="bank-card bank-card-lian">
-        <div class="bank-card-top">
-          <div class="bank-logo">
-            <div class="bank-logo-circle-lian">聯</div>
-            <div><div class="bank-logo-name-lian">聯邦商業銀行</div></div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button onclick="toggleCats('lian')" id="cats-toggle-lian" style="background:rgba(36,113,163,.08);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;color:#2471a3;display:flex;align-items:center;transition:transform .2s" aria-label="收折"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
-            <button class="bank-edit-btn-lian" onclick="openBalModal('lian')" aria-label="調整餘額"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></i></button>
-          </div>
-        </div>
-        <div class="bank-balance-label-lian">帳戶餘額</div>
-        <div class="bank-balance-lian" id="bal-lian"></div>
-        <div id="lian-month-interest" style="font-size:11px;color:#2471a3;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
-        <div class="cat-section-lian" id="cats-lian"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <p class="stitle" style="margin:0">帳戶</p>
+        <button onclick="toggleBankEdit()" id="bank-edit-toggle"
+          style="font-size:12px;color:var(--accent);border:none;background:none;cursor:pointer;padding:2px 6px;font-family:inherit">
+          編輯
+        </button>
       </div>
-      <div class="bank-card bank-card-hua">
-        <div class="bank-card-top">
-          <div class="bank-logo">
-            <div class="bank-logo-circle-hua">華</div>
-            <div><div class="bank-logo-name-hua">華南商業銀行</div></div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button onclick="toggleCats('hua')" id="cats-toggle-hua" style="background:rgba(192,57,43,.08);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;color:#c0392b;display:flex;align-items:center;transition:transform .2s" aria-label="收折"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
-            <button class="bank-edit-btn-hua" onclick="openBalModal('hua')" aria-label="調整餘額"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></i></button>
-          </div>
-        </div>
-        <div class="bank-balance-label-hua">帳戶餘額</div>
-        <div class="bank-balance-hua" id="bal-hua"></div>
-        <div id="hua-month-interest" style="font-size:11px;color:#c0392b;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
-        <div class="cat-section-hua" id="cats-hua"></div>
-      </div>
+      <div id="bank-cards-container"></div>
     </div>
 
     <!-- 借貸 -->
@@ -631,6 +612,7 @@ async function load(){
     if(S.settings.etf2Amt) S.etfList.push({id:'etf2',name:'股票B',amt:S.settings.etf2Amt||1000,day:S.settings.etf2Day||6,on:S.settings.etf2On||false});
   }
   S.fixedSchedules = Array.isArray(S.fixedSchedules) ? S.fixedSchedules : [];
+  if(!S.bankLayout||typeof S.bankLayout!=='object') S.bankLayout={order:['lian','hua'],hidden:{}};
   if(!S.reminded||typeof S.reminded!=='object') S.reminded={};
 }
 async function persist(){
@@ -734,7 +716,7 @@ const fmt=n=>'NT$ '+Math.round(n).toLocaleString('zh-TW');
 const fmtN=n=>(n>=0?'+':'')+Math.round(n).toLocaleString('zh-TW');
 const fmtAbs=n=>Math.round(Math.abs(n)).toLocaleString('zh-TW');
 function findCat(name){
-  if(!S.cats||!Array.isArray(S.cats.hua)) return null;
+  if(!S.cats||!Array.isArray(S.cats.lian)) return null;
   return (S.cats.lian||[]).find(c=>c.name===name);
 }
 function doRepay(loan,pp){
@@ -1060,6 +1042,7 @@ function renderRemind(){
 }
 
 function renderOverview(){
+  renderBankCards();
   const animVal=(el,val)=>{if(!el)return;el.classList.remove('count-anim');void el.offsetWidth;el.textContent=fmt(val);el.classList.add('count-anim');};
   animVal(document.getElementById('bal-hua'),S.hua);
   animVal(document.getElementById('bal-lian'),S.lian);
@@ -1366,6 +1349,134 @@ function render(){
 }
 
 // ═══ Nav ════════════════════════════════════════════════════
+// ═══ 銀行卡動態渲染 ═════════════════════════════════════════
+let bankEditMode = false;
+let bankOrder = null; // ['lian','hua'] or ['hua','lian']
+let bankHidden = {}; // {lian: false, hua: false}
+
+function getBankOrder(){
+  if(!S.bankLayout) S.bankLayout={order:['lian','hua'],hidden:{}};
+  return S.bankLayout.order||['lian','hua'];
+}
+function getBankHidden(){
+  if(!S.bankLayout) S.bankLayout={order:['lian','hua'],hidden:{}};
+  return S.bankLayout.hidden||{};
+}
+
+function toggleBankEdit(){
+  bankEditMode=!bankEditMode;
+  document.getElementById('bank-edit-toggle').textContent=bankEditMode?'完成':'編輯';
+  renderBankCards();
+}
+
+function toggleBankHidden(bank){
+  if(!S.bankLayout) S.bankLayout={order:['lian','hua'],hidden:{}};
+  S.bankLayout.hidden[bank]=!S.bankLayout.hidden[bank];
+  persist(); renderBankCards();
+}
+
+function renderBankCards(){
+  const container=document.getElementById('bank-cards-container');
+  if(!container) return;
+  const order=getBankOrder();
+  const hidden=getBankHidden();
+
+  const dragSVG='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>';
+  const editSVG='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const chevSVG='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+  function buildCard(bank){
+    const isHua=bank==='hua';
+    const isHidden=hidden[bank];
+    const cardClass=isHua?'bank-card-hua':'bank-card-lian';
+    const circleClass=isHua?'bank-logo-circle-hua':'bank-logo-circle-lian';
+    const nameClass=isHua?'bank-logo-name-hua':'bank-logo-name-lian';
+    const editBtnClass=isHua?'bank-edit-btn-hua':'bank-edit-btn-lian';
+    const labelClass=isHua?'bank-balance-label-hua':'bank-balance-label-lian';
+    const balClass=isHua?'bank-balance-hua':'bank-balance-lian';
+    const catSectionClass=isHua?'cat-section-hua':'cat-section-lian';
+    const intColor=isHua?'#c0392b':'#2471a3';
+    const toggleBg=isHua?'rgba(192,57,43,.08)':'rgba(36,113,163,.08)';
+    const toggleColor=isHua?'#c0392b':'#2471a3';
+    const label=isHua?'華南商業銀行':'聯邦商業銀行';
+    const letter=isHua?'華':'聯';
+
+    return `<div class="bank-card ${cardClass}${isHidden&&!bankEditMode?' bank-hidden-card':''}"
+        id="bank-card-${bank}" draggable="${bankEditMode}"
+        ondragstart="bankDragStart(event,'${bank}')"
+        ondragover="bankDragOver(event)"
+        ondragleave="bankDragLeave(event)"
+        ondrop="bankDrop(event,'${bank}')">
+      <div class="bank-card-top">
+        <div style="display:flex;align-items:center;gap:0">
+          ${bankEditMode?`<div class="bank-drag-handle" style="display:flex">${dragSVG}</div>`:''}
+          <div class="bank-logo">
+            <div class="${circleClass}">${letter}</div>
+            <div><div class="${nameClass}">${label}</div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${bankEditMode?`<button class="bank-hide-btn" onclick="toggleBankHidden('${bank}')">${isHidden?'顯示':'隱藏'}</button>`:''}
+          <button onclick="toggleCats('${bank}')" id="cats-toggle-${bank}"
+            style="background:${toggleBg};border:none;border-radius:8px;padding:5px 8px;cursor:pointer;color:${toggleColor};display:flex;align-items:center;transition:transform .2s" aria-label="收折">${chevSVG}</button>
+          <button class="${editBtnClass}" onclick="openBalModal('${bank}')" aria-label="調整餘額"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;">${editSVG}</span></button>
+        </div>
+      </div>
+      ${isHidden&&!bankEditMode?'<div style="text-align:center;font-size:12px;color:var(--text3);padding:8px 0">已隱藏</div>':`
+      <div class="${labelClass}">帳戶餘額</div>
+      <div class="${balClass}" id="bal-${bank}"></div>
+      <div id="${bank}-month-interest" style="font-size:11px;color:${intColor};opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
+      <div class="${catSectionClass}" id="cats-${bank}"></div>
+      `}
+    </div>`;
+  }
+
+  container.innerHTML=order.map(buildCard).join('');
+
+  // 重新渲染後套用收折狀態
+  ['hua','lian'].forEach(function(b){
+    const el=document.getElementById('cats-'+b);
+    const btn=document.getElementById('cats-toggle-'+b);
+    if(el) el.style.display=catsCollapsed[b]?'none':'';
+    if(btn) btn.style.transform=catsCollapsed[b]?'rotate(180deg)':'rotate(0deg)';
+  });
+}
+
+// 拖動邏輯
+let dragBank=null;
+function bankDragStart(e,bank){
+  dragBank=bank;
+  e.dataTransfer.effectAllowed='move';
+  setTimeout(function(){const el=document.getElementById('bank-card-'+bank);if(el)el.classList.add('dragging');},0);
+}
+function bankDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  const card=e.currentTarget;
+  card.classList.add('drag-over');
+}
+function bankDragLeave(e){
+  e.currentTarget.classList.remove('drag-over');
+}
+function bankDrop(e,targetBank){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  document.getElementById('bank-card-'+(dragBank||''))?.classList.remove('dragging');
+  if(!dragBank||dragBank===targetBank) return;
+  if(!S.bankLayout) S.bankLayout={order:['lian','hua'],hidden:{}};
+  const order=S.bankLayout.order||['lian','hua'];
+  const fromIdx=order.indexOf(dragBank);
+  const toIdx=order.indexOf(targetBank);
+  if(fromIdx!==-1&&toIdx!==-1){
+    order.splice(fromIdx,1);
+    order.splice(toIdx,0,dragBank);
+  }
+  dragBank=null;
+  persist(); renderBankCards(); renderOverview();
+}
+
+// ═══ 銀行卡動態渲染 結束 ════════════════════════════════════
+
 function sw(name){
   const tabs=['overview','loans','txlog','settings'];
   tabs.forEach(t=>document.getElementById('tab-'+t).classList.toggle('active',t===name));
@@ -1682,7 +1793,29 @@ function saveSettings(){
   persist();render();alert('設定已儲存！');
 }
 
-// ═══ Init ═══════════════════════════════════════════════════
+// ═══ 滑動切換分頁 ═══════════════════════════════════════════
+(function(){
+  const tabs=['overview','loans','txlog','settings'];
+  let startX=0, startY=0, startTime=0;
+
+  document.querySelector('.content').addEventListener('touchstart',function(e){
+    startX=e.touches[0].clientX;
+    startY=e.touches[0].clientY;
+    startTime=Date.now();
+  },{passive:true});
+
+  document.querySelector('.content').addEventListener('touchend',function(e){
+    const dx=e.changedTouches[0].clientX-startX;
+    const dy=e.changedTouches[0].clientY-startY;
+    const dt=Date.now()-startTime;
+    // 水平滑動：距離夠、時間夠短、水平方向大於垂直
+    if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5 && dt<400){
+      const cur=tabs.findIndex(t=>document.getElementById('tab-'+t).classList.contains('active'));
+      if(dx<0 && cur<tabs.length-1) sw(tabs[cur+1]); // 左滑 → 下一頁
+      if(dx>0 && cur>0)             sw(tabs[cur-1]); // 右滑 → 上一頁
+    }
+  },{passive:true});
+})();
 (async()=>{
   await load();
   autoApplyLoans();
