@@ -284,22 +284,6 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
       <div id="remind-ahead-area"></div>
 
       <p class="stitle">帳戶</p>
-      <div class="bank-card bank-card-hua">
-        <div class="bank-card-top">
-          <div class="bank-logo">
-            <div class="bank-logo-circle-hua">華</div>
-            <div><div class="bank-logo-name-hua">華南商業銀行</div></div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button onclick="toggleCats('hua')" id="cats-toggle-hua" style="background:rgba(192,57,43,.08);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;color:#c0392b;display:flex;align-items:center;transition:transform .2s" aria-label="收折"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
-            <button class="bank-edit-btn-hua" onclick="openBalModal('hua')" aria-label="調整餘額"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></i></button>
-          </div>
-        </div>
-        <div class="bank-balance-label-hua">帳戶餘額</div>
-        <div class="bank-balance-hua" id="bal-hua"></div>
-        <div id="hua-month-interest" style="font-size:11px;color:#c0392b;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
-        <div class="cat-section-hua" id="cats-hua"></div>
-      </div>
       <div class="bank-card bank-card-lian">
         <div class="bank-card-top">
           <div class="bank-logo">
@@ -315,6 +299,22 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
         <div class="bank-balance-lian" id="bal-lian"></div>
         <div id="lian-month-interest" style="font-size:11px;color:#2471a3;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
         <div class="cat-section-lian" id="cats-lian"></div>
+      </div>
+      <div class="bank-card bank-card-hua">
+        <div class="bank-card-top">
+          <div class="bank-logo">
+            <div class="bank-logo-circle-hua">華</div>
+            <div><div class="bank-logo-name-hua">華南商業銀行</div></div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button onclick="toggleCats('hua')" id="cats-toggle-hua" style="background:rgba(192,57,43,.08);border:none;border-radius:8px;padding:5px 8px;cursor:pointer;color:#c0392b;display:flex;align-items:center;transition:transform .2s" aria-label="收折"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+            <button class="bank-edit-btn-hua" onclick="openBalModal('hua')" aria-label="調整餘額"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></i></button>
+          </div>
+        </div>
+        <div class="bank-balance-label-hua">帳戶餘額</div>
+        <div class="bank-balance-hua" id="bal-hua"></div>
+        <div id="hua-month-interest" style="font-size:11px;color:#c0392b;opacity:.7;margin-top:3px;margin-bottom:-4px;min-height:16px"></div>
+        <div class="cat-section-hua" id="cats-hua"></div>
       </div>
     </div>
 
@@ -735,22 +735,22 @@ const fmtN=n=>(n>=0?'+':'')+Math.round(n).toLocaleString('zh-TW');
 const fmtAbs=n=>Math.round(Math.abs(n)).toLocaleString('zh-TW');
 function findCat(name){
   if(!S.cats||!Array.isArray(S.cats.hua)) return null;
-  return S.cats.hua.find(c=>c.name===name);
+  return (S.cats.lian||[]).find(c=>c.name===name);
 }
 function doRepay(loan,pp){
-  S.hua+=pp;
+  S.lian+=pp;
   if(!S.cats) S.cats={hua:[],lian:[]};
-  if(!Array.isArray(S.cats.hua)) S.cats.hua=[];
-  const catIdx=S.cats.hua.findIndex(c=>c.name===loan.name);
+  if(!Array.isArray(S.cats.lian)) S.cats.lian=[];
+  const catIdx=S.cats.lian.findIndex(c=>c.name===loan.name);
   if(catIdx!==-1){
-    S.cats.hua[catIdx].val=Math.min(0,S.cats.hua[catIdx].val+pp);
-    if(loan.paid>=loan.periods) S.cats.hua.splice(catIdx,1);
+    S.cats.lian[catIdx].val=Math.min(0,S.cats.lian[catIdx].val+pp);
+    if(loan.paid>=loan.periods) S.cats.lian.splice(catIdx,1);
   }
 }
 function undoRepay(loan,pp){
-  S.hua-=pp;
-  const cat=findCat(loan.name);
-  if(cat) cat.val=cat.val-pp;
+  S.lian-=pp;
+  const catU=(S.cats.lian||[]).find(function(c){return c.name===loan.name;});
+  if(catU) catU.val=catU.val-pp;
 }
 
 // ═══ Auto apply ════════════════════════════════════════════
@@ -761,7 +761,7 @@ function autoApplyLoans(){
     if(day===(l.repayDay||10)&&l.paid<l.periods&&!S.reminded[key]){
       const pp=Math.round(l.total/l.periods); const wasDone=l.paid===l.periods-1;
       l.paid++; doRepay(l,pp);
-      S.txs.push({id:'tx_'+Date.now()+'_'+l.id,bank:'hua',type:'repay',
+      S.txs.push({id:'tx_'+Date.now()+'_'+l.id,bank:'lian',type:'repay',
         desc:`自動還款：${l.name}`,amt:pp,date:todayLabel(),loanId:l.id,ym,auto:true});
       S.reminded[key]=true; changed=true;
       if(wasDone) setTimeout(()=>showCelebrate(l.name),600);
@@ -941,7 +941,7 @@ function payOne(loanId){
   if(S.txs.some(t=>t.loanId===loanId&&t.type==='repay'&&t.ym===ym)){alert('這個月已有還款紀錄，請先取消本月還款。');return;}
   const pp=Math.round(l.total/l.periods); const wasDone=l.paid===l.periods-1;
   l.paid++; doRepay(l,pp);
-  S.txs.push({id:'tx_'+Date.now(),bank:'hua',type:'repay',desc:`手動還款：${l.name}`,amt:pp,date:todayLabel(),loanId,ym,auto:false});
+  S.txs.push({id:'tx_'+Date.now(),bank:'lian',type:'repay',desc:`手動還款：${l.name}`,amt:pp,date:todayLabel(),loanId,ym,auto:false});
   S.reminded[`loan_auto_${loanId}_${ym}`]=true;
   persist(); render();
   if(wasDone) setTimeout(()=>showCelebrate(l.name),400);
@@ -1430,7 +1430,9 @@ function addLoan(){
   S.loans.push({id:Date.now(),name,total,periods,paid,repayDay});
   if(!S.cats) S.cats={hua:[],lian:[]};
   if(!S.cats.hua) S.cats.hua=[];
-  if(!S.cats.hua.find(c=>c.name===name)) S.cats.hua.push({id:'c'+Date.now(),name,val:remaining});
+  if(!S.cats) S.cats={hua:[],lian:[]};
+  if(!Array.isArray(S.cats.lian)) S.cats.lian=[];
+  if(!S.cats.lian.find(c=>c.name===name)) S.cats.lian.push({id:'c'+Date.now(),name,val:remaining});
   persist();render();closeM('loan-modal');
   ['ln-name','ln-total','ln-periods','ln-paid','ln-day'].forEach(id=>document.getElementById(id).value='');
 }
@@ -1456,8 +1458,8 @@ function saveLoanEdit(){
   const pp=Math.round(newTotal/newPer);
   const remaining=-(newTotal-pp*Math.min(newPaid,newPer));
   if(!S.cats) S.cats={hua:[],lian:[]};
-  if(!S.cats.hua) S.cats.hua=[];
-  const cat=S.cats.hua.find(c=>c.name===oldName);
+  if(!S.cats.lian) S.cats.lian=[];
+  const cat=S.cats.lian.find(c=>c.name===oldName);
   if(cat){cat.name=newName;cat.val=remaining;}
   l.name=newName;l.total=newTotal;l.periods=newPer;l.paid=newPaid;l.repayDay=newDay;
   persist();render();closeM('edit-loan-modal');
