@@ -396,7 +396,7 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
 
 <nav class="tabs">
   <button class="tab active" onclick="sw('overview')"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg></span></i>總覽</button>
-  <button class="tab" onclick="sw('loans')"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="15" x2="9" y2="15"/><line x1="11" y1="15" x2="13" y2="15"/></svg></span></i>借貸</button>
+  <button class="tab" onclick="sw('loans')" style="display:none"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="15" x2="9" y2="15"/><line x1="11" y1="15" x2="13" y2="15"/></svg></span></i>借貸</button>
   <button class="tab" onclick="sw('txlog')"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16l-3-2-2 2-2-2-2 2-2-2-3 2z"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="13" y2="15"/></svg></span></i>紀錄</button>
   <button class="tab" onclick="sw('settings')"><span style="display:inline-flex;align-items:center;width:1em;height:1em;flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span></i>設定</button>
 </nav>
@@ -988,13 +988,12 @@ function renderRemind(){
   const area=document.getElementById('remind-area');
   const aheadArea=document.getElementById('remind-ahead-area');
   const ym=todayYM(); const{day}=todayInfo(); let html='';
-  const autoToday=S.txs.filter(t=>{
-    if(t.type!=='repay'||t.ym!==ym||t.auto!==true) return false;
-    // 只在還款當天顯示
-    const loan=S.loans.find(l=>l.id===t.loanId);
-    const repayDay=loan?loan.repayDay||1:1;
-    return day===repayDay;
-  });
+  const autoToday=[];//S.txs.filter(t=>{
+  //  if(t.type!=='repay'||t.ym!==ym||t.auto!==true) return false;
+  //  const loan=S.loans.find(l=>l.id===t.loanId);
+  //  const repayDay=loan?loan.repayDay||1:1;
+  //  return day===repayDay;
+  //});
   if(autoToday.length){
     const rows=autoToday.map(t=>`
       <div class="banner-item"><span>${t.desc}</span>
@@ -1811,8 +1810,13 @@ function saveSettings(){
     // 水平滑動：距離夠、時間夠短、水平方向大於垂直
     if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5 && dt<400){
       const cur=tabs.findIndex(t=>document.getElementById('tab-'+t).classList.contains('active'));
-      if(dx<0 && cur<tabs.length-1) sw(tabs[cur+1]); // 左滑 → 下一頁
-      if(dx>0 && cur>0)             sw(tabs[cur-1]); // 右滑 → 上一頁
+      const visibleTabs=tabs.filter(function(t){
+        var btn=document.querySelector('button[onclick="sw(\''+t+'\')"')|| document.querySelector('button.tab[onclick*="\''+t+'\'"');
+        return !btn||btn.style.display!=='none';
+      });
+      const visCur=visibleTabs.indexOf(tabs[cur]);
+      if(dx<0 && visCur<visibleTabs.length-1) sw(visibleTabs[visCur+1]);
+      if(dx>0 && visCur>0)                     sw(visibleTabs[visCur-1]);
     }
   },{passive:true});
 })();
