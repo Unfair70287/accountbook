@@ -737,19 +737,7 @@ function undoRepay(loan,pp){
 
 // ═══ Auto apply ════════════════════════════════════════════
 function autoApplyLoans(){
-  const{y,m,day}=todayInfo(); const ym=`${y}-${m}`; let changed=false;
-  S.loans.forEach(l=>{
-    const key=`loan_auto_${l.id}_${ym}`;
-    if(day===(l.repayDay||10)&&l.paid<l.periods&&!S.reminded[key]){
-      const pp=Math.round(l.total/l.periods); const wasDone=l.paid===l.periods-1;
-      l.paid++; doRepay(l,pp);
-      S.txs.push({id:'tx_'+Date.now()+'_'+l.id,bank:'lian',type:'repay',
-        desc:`自動還款：${l.name}`,amt:pp,date:todayLabel(),loanId:l.id,ym,auto:true});
-      S.reminded[key]=true; changed=true;
-      if(wasDone) setTimeout(()=>showCelebrate(l.name),600);
-    }
-  });
-  if(changed) persist();
+  // 自動還款已停用
 }
 
 // ═══ Pending items ══════════════════════════════════════════
