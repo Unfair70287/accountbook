@@ -336,10 +336,12 @@ html,body{height:100%;background:var(--bg);font-family:'Noto Sans TC','Microsoft
         <div class="card" style="margin-top:0;border-radius:0 0 var(--r) var(--r)">
           <p class="acc-sub">華南銀行</p>
           <div class="srow"><label>年利率 (%)</label><input type="number" id="s-hua-rate" step="0.01" min="0"></div>
+          <div class="srow"><label>計息上限額度 (NT$)</label><input type="number" id="s-hua-cap" min="0"></div>
           <div class="srow"><label>利息計算日</label><input type="number" id="s-hua-day" min="1" max="28"></div>
           <div class="srow"><label>利息顯示日</label><input type="number" id="s-hua-show-day" min="1" max="28"></div>
           <p class="acc-sub" style="margin-top:8px">聯邦銀行</p>
           <div class="srow"><label>年利率 (%)</label><input type="number" id="s-lian-rate" step="0.01" min="0"></div>
+          <div class="srow"><label>計息上限額度 (NT$)</label><input type="number" id="s-lian-cap" min="0"></div>
           <div class="srow"><label>利息計算日</label><input type="number" id="s-lian-day" min="1" max="28"></div>
           <div class="srow"><label>利息顯示日</label><input type="number" id="s-lian-show-day" min="1" max="28"></div>
           <p class="acc-sub" style="margin-top:8px">聯邦定期定額</p>
@@ -593,12 +595,16 @@ async function load(){
   if(typeof S.hua!=='number')  S.hua=57000;
   if(typeof S.lian!=='number') S.lian=0;
   S.txs   = Array.isArray(S.txs)   ? S.txs   : [];
+  // 補正舊資料 ym 格式（2026-9 → 2026-09）
+  S.txs.forEach(t=>{if(t.ym&&/^\d{4}-\d{1}$/.test(t.ym))t.ym=t.ym.replace(/-(\d)$/,'-0$1');});
   S.loans = Array.isArray(S.loans) ? S.loans : [];
   if(!S.cats||typeof S.cats!=='object') S.cats={};
   if(!Array.isArray(S.cats.hua))  S.cats.hua=[];
   if(!Array.isArray(S.cats.lian)) S.cats.lian=[];
   if(!S.settings||typeof S.settings!=='object') S.settings={};
   S.settings.huaRate    = S.settings.huaRate    ?? 2;
+  S.settings.huaCap     = S.settings.huaCap     ?? null;
+  S.settings.lianCap    = S.settings.lianCap    ?? null;
   S.settings.huaDay     = S.settings.huaDay     ?? 21;
   S.settings.huaShowDay = S.settings.huaShowDay ?? 21;
   S.settings.lianRate   = S.settings.lianRate   ?? 1.5;
@@ -709,7 +715,7 @@ function renderGistSettings(){
 
 // ═══ Helpers ═══════════════════════════════════════════════
 function todayInfo(){const d=new Date();return{y:d.getFullYear(),m:d.getMonth()+1,day:d.getDate()};}
-function todayYM(){const d=new Date();return`${d.getFullYear()}-${d.getMonth()+1}`;}
+function todayYM(){const d=new Date();const m=String(d.getMonth()+1).padStart(2,'0');return`${d.getFullYear()}-${m}`;}
 function todayLabel(){const d=new Date();return`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;}
 function todayShort(){const d=new Date();return`${d.getMonth()+1}月${d.getDate()}日`;}
 const fmt=n=>'NT$ '+Math.round(n).toLocaleString('zh-TW');
@@ -788,7 +794,12 @@ function calcInterestForPeriod(bank, rate, startY, startM, startDay, endY, endM,
     if(changeMap[key]) curBal -= changeMap[key];
   }
 
-  for(let i=0; i<days; i++) total += dailyBals[i];
+  // 套用計息上限：每日餘額超過 cap 的部分不計息
+  const cap = bank==='hua' ? (S.settings.huaCap??null) : (S.settings.lianCap??null);
+  for(let i=0; i<days; i++){
+    const effBal = (cap!==null && dailyBals[i]>cap) ? cap : dailyBals[i];
+    total += Math.max(0, effBal);
+  }
 
   return Math.round(total * (rate/100) / 365);
 }
@@ -1280,9 +1291,11 @@ function renderSettings(){
   renderGistSettings();
   const c=S.settings;
   document.getElementById('s-hua-rate').value=c.huaRate;
+  document.getElementById('s-hua-cap').value=c.huaCap??'';
   document.getElementById('s-hua-day').value=c.huaDay;
   document.getElementById('s-hua-show-day').value=c.huaShowDay||c.huaDay;
   document.getElementById('s-lian-rate').value=c.lianRate;
+  document.getElementById('s-lian-cap').value=c.lianCap??'';
   document.getElementById('s-lian-day').value=c.lianDay;
   document.getElementById('s-lian-show-day').value=c.lianShowDay||c.lianDay;
   // 定期定額清單
@@ -1776,8 +1789,8 @@ function saveSettings(){
   const g=id=>document.getElementById(id);
   saveGhCreds();
   S.settings={
-    huaRate:parseFloat(g('s-hua-rate').value)||0, huaDay:parseInt(g('s-hua-day').value)||21, huaShowDay:parseInt(g('s-hua-show-day').value)||21,
-    lianRate:parseFloat(g('s-lian-rate').value)||0, lianDay:parseInt(g('s-lian-day').value)||21, lianShowDay:parseInt(g('s-lian-show-day').value)||21,
+    huaRate:parseFloat(g('s-hua-rate').value)||0, huaCap:g('s-hua-cap').value?parseFloat(g('s-hua-cap').value):null, huaDay:parseInt(g('s-hua-day').value)||21, huaShowDay:parseInt(g('s-hua-show-day').value)||21,
+    lianRate:parseFloat(g('s-lian-rate').value)||0, lianCap:g('s-lian-cap').value?parseFloat(g('s-lian-cap').value):null, lianDay:parseInt(g('s-lian-day').value)||21, lianShowDay:parseInt(g('s-lian-show-day').value)||21,
     remindAhead:parseInt(g('s-remind-ahead').value)||0,
   };
   persist();render();alert('設定已儲存！');
