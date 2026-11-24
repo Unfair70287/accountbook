@@ -1208,7 +1208,10 @@ function renderTx(){
   }
   const groups={};
   txs.forEach(t=>{const key=t.ym||'其他';if(!groups[key])groups[key]=[];groups[key].push(t);});
-  const sortedKeys=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+  const sortedKeys=Object.keys(groups).sort((a,b)=>{
+    if(a==='其他') return 1; if(b==='其他') return -1;
+    return b>a?1:b<a?-1:0;
+  });
   tl.innerHTML=sortedKeys.map((ym,gi)=>{
     const list=groups[ym];
     const[y,m]=ym.split('-');
